@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>JsSIP + WebRTC + freeSWITCH</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="Author" content="foruok" />
+  <meta name="description" content="JsSIP based example web application." />
+  <!--<script src="./js/jssip-3.3.11.min.js" type="text/javascript"></script>-->
+  <script src="libs/jssip-3.3.11.js" type="text/javascript"></script>
+  <style type="text/css">
+  </style>
+</head>
+<style type="text/css">
+  /* 遮罩层 */
+  #overlay {
+    position: fixed;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    font-size: 16px;
+    /* IE9以下不支持rgba模式 */
+    background-color: rgba(0, 0, 0, 0.5);
+    /* 兼容IE8及以下 */
+    filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#7f000000, endColorstr=#7f000000);
+    display: none;
+  }
+
+  /* 弹出框主体 */
+  .popup {
+    background-color: #ffffff;
+    max-width: 400px;
+    min-width: 200px;
+    height: 240px;
+    border-radius: 5px;
+    margin: 100px auto;
+    text-align: center;
+  }
+
+  /* 弹出框的标题 */
+  .popup_title {
+    height: 60px;
+    line-height: 60px;
+    border-bottom: solid 1px #cccccc;
+  }
+
+  /* 弹出框的内容 */
+  .popup_content {
+    height: 50px;
+    line-height: 50px;
+    padding: 15px 20px;
+  }
+
+  /* 弹出框的按钮栏 */
+  .popup_btn {
+    padding-bottom: 10px;
+  }
+
+  /* 弹出框的按钮 */
+  .popup_btn button {
+    color: #778899;
+    width: 40%;
+    height: 40px;
+    cursor: pointer;
+    border: solid 1px #cccccc;
+    border-radius: 5px;
+    margin: 5px 10px;
+    color: #ffffff;
+    background-color: #337ab7;
+  }
+</style>
+
+<body>
+  <!-- https://blog.csdn.net/wh8_2011/article/details/79816556?utm_medium=distribute.pc_relevant.none-task-blog-2~default~baidujs_baidulandingword~default-1-79816556-blog-138221803.235^v43^pc_blog_bottom_relevance_base1&spm=1001.2101.3001.4242.2&utm_relevant_index=2 -->
+
+  <div id="login-page"
+    style="width: 424px; height: 260px; background-color: #f2f4f4; border: 1px solid grey; padding-top: 4px">
+    <table border="0" frame="void" width="418px">
+      <tr>
+        <td class="td_label" width="160px" align="right"><label for="sip_uri">SIP URI:</label></td>
+        <td width="258px"><input style="width:250px" id="sip_uri" type="text"
+            placeholder="SIP URI (i.e: sip:alice@example.com)" value="sip:1002@192.168.0.130:15060" /></td>
+      </tr>
+      <tr>
+        <td class="td_label" align="right"><label for="sip_password">SIP Password:</label></td>
+        <td><input style="width:250px" id="sip_password" type="password" placeholder="SIP password"
+            value="123456" /></td>
+      </tr>
+      <tr>
+        <td class="td_label" align="right"><label for="ws_uri">WSS URI:</label></td>
+        <td><input style="width:250px" id="ws_uri" class="last unset" type="text"
+            placeholder="WSS URI (i.e: wss://example.com)" value="wss://192.168.0.130:7443" /></td>
+      </tr>
+      <tr>
+        <td class="td_label" align="right"><label class="input_label" for="sip_phone_number">SIP Phone Info:</label>
+        </td>
+        <td><input style="width:250px" id="sip_phone_number" type="text" placeholder="sip:3000@192.168.40.96:5060"
+            value="sip:1003@192.168.0.130:15060"></td>
+      </tr>
+      <tr>
+        <td colspan="2" align="center"><button onclick="testStart()"> 注册初始化 </button></td>
+      </tr>
+      <tr>
+        <td colspan="2" align="center"><button onclick="testCall()"> 语音拨号 </button></td>
+      </tr>
+      <tr>
+        <td colspan="2" align="center"><button onclick="testCallByVedio()"> 视频拨号 </button></td>
+      </tr>
+      <tr>
+        <td colspan="2" align="center"><button onclick="testHangup()"> 挂断 </button></td>
+      </tr>
+      <tr>
+        <td colspan="2" align="center"><button onclick="unReg()"> 取消注册 </button></td>
+      </tr>
+      <tr>
+        <td colspan="2" align="center"><button onclick="captureLocalMedia()"> 获取本地媒体设备（测试本地设备是否正常） </button></td>
+      </tr>
+    </table>
+  </div>
+
+  <!--<div style="width: 300px; height: 200px;background-color: #333333; border: 2px solid blue; padding:0px; margin-top: 4px;">
+    <video id="video" width="300px" height="200px" autoplay ></video>
+	<p>本地摄像头</p>
+	<video style="background-color: #333333; border: 2px solid blue; padding:0px; margin-top: 4px;" id="my-video" width="120px" height="80px"  autoplay> </video>
+	</br>
+    <!--<p>音频</p><audio id="audio" controls></audio>-->
+  <!--<audio id="audio"></audio>
+</div>-->
+  <div>
+    <p>音频</p>
+    <audio id="audio" autoplay></audio>
+  </div>
+
+  <div style="padding-top:10px;padding-bottom:10px;font-weight:bold;">
+    视频展示
+  </div>
+
+  <div style="padding-top:10px;" align="left">
+    <table border="0">
+      <tr>
+        <video id="meVideo" width="640x" height="360px"
+          style="padding-right:10px;background-color: #333333; border: 2px solid blue;"></video>
+        <video id="remoteVideo" width="640x" height="360px"
+          style="background-color: #333333; border: 2px solid blue;"></video>
+      </tr>
+    </table>
+  </div>
+
+  <!--<div id="overlay">
+    <div class="popup">
+      <p class="popup_title" id="p_title"></p>
+      <p class="popup_content" id="p_content"></p>
+      <div class="popup_btn">
+        <button class="cancelBtn" onclick="hidePopup()">取消</button>
+        <button class="confirmBtn" onclick="hidePopup()">确认</button>
+	  </div>
+	</div>
+</div>-->
+</body>
+<script type="text/javascript">
+  var outgoingSession = null;
+  var incomingSession = null;
+  var currentSession = null;
+  var audio = document.getElementById('audio');
+  var meVideo = document.getElementById('meVideo');
+  meVideo.setAttribute('autoplay', '');
+  // meVideo.setAttribute('muted', '');
+  meVideo.setAttribute('playsinline', '');
+  meVideo.style.width = '360px';
+
+  var youVideo = document.getElementById('remoteVideo');
+  youVideo.setAttribute('autoplay', '');
+  //meVideo.setAttribute('muted', '');
+  youVideo.setAttribute('playsinline', '');
+  youVideo.style.width = '360px';
+
+
+  var myHangup = false;
+
+  var constraints = {
+    audio: true,
+    video: true,
+    mandatory: {
+      maxWidth: 640,
+      maxHeight: 360
+    }
+  };
+  URL = window.URL || window.webkitURL;
+
+  var localStream = null;
+  var userAgent = null;
+
+  function gotLocalMedia(stream) {
+    console.info('收到本地媒体流');
+    localStream = stream;
+    //audio.src = URL.createObjectURL(stream);
+
+    //连接本地麦克风
+    try {
+      audio.srcObject = stream;
+    } catch (error) {
+      audio.src = window.URL.createObjectURL(stream);
+    }
+    //屏幕连接本地摄像头
+    try {
+      meVideo.srcObject = stream;
+    } catch (error) {
+      meVideo.src = window.URL.createObjectURL(stream);
+    }
+
+  }
+
+  function captureLocalMedia() {
+    console.info('Requesting local video & audio');
+    navigator.webkitGetUserMedia(constraints, gotLocalMedia, function (e) {
+      alert('getUserMedia() error: ' + e.name);
+    });
+  }
+
+  function showVedio() {
+    navigator.mediaDevices.getUserMedia(constraints).then(function success(stream) {
+      meVideo.srcObject = stream;
+      document.body.addEventListener('click', function () {
+        meVideo.play();
+      });
+      // wait until the video stream is ready
+      var interval = setInterval(function () {
+        if (!meVideo.videoWidth) {
+          return;
+        }
+        //stage.appendChild(videoView);
+        clearInterval(interval);
+      }, 1000 / 50);
+    }).catch(function (error) {
+      onError({
+        name: error.name,
+        message: error.message
+      });
+    });
+  }
+  //注册初始化
+  function testStart() {
+    var sip_uri_ = document.getElementById("sip_uri").value.toString();
+    var sip_password_ = document.getElementById("sip_password").value.toString();
+    var ws_uri_ = document.getElementById("ws_uri").value.toString();
+    console.info("get input info: sip_uri = ", sip_uri_, " sip_password = ", sip_password_, " ws_uri = ", ws_uri_);
+
+    var socket = new JsSIP.WebSocketInterface(ws_uri_);
+    var configuration = {
+      sockets: [socket],
+      outbound_proxy_set: ws_uri_,
+      uri: sip_uri_,//与用户代理关联的SIP URI（字符串）。这是您的提供商提供给您的SIP地址
+      password: sip_password_,//SIP身份验证密码
+      register: true,//指示启动时JsSIP用户代理是否应自动注册
+      session_timers: false//启用会话计时器（根据RFC 4028）
+    };
+
+    userAgent = new JsSIP.UA(configuration);
+
+    //成功注册成功,data:Response JsSIP.IncomingResponse收到的SIP 2XX响应的实例
+    userAgent.on('registered', function (data) {
+      console.info("registered: ", data.response.status_code, ",", data.response.reason_phrase);
+    });
+
+    //由于注册失败而被解雇,data:Response JsSIP.IncomingResponse接收到的SIP否定响应的实例，如果失败是由这样的响应的接收产生的，否则为空
+    userAgent.on('registrationFailed', function (data) {
+      console.log("registrationFailed, ", data);
+      //console.warn("registrationFailed, ", data.response.status_code, ",", data.response.reason_phrase, " cause - ", data.cause);
+    });
+
+    //1.在注册到期之前发射几秒钟。如果应用程序没有为这个事件设置任何监听器，JsSIP将像往常一样重新注册。
+    // 2.如果应用程序订阅了这个事件，它负责ua.register()在registrationExpiring事件中调用（否则注册将过期）。
+    // 3.此事件使应用程序有机会在重新注册之前执行异步操作。对于那些在REGISTER请求中的自定义SIP头中使用外部获得的“令牌”的环境很有用。
+    userAgent.on('registrationExpiring', function () {
+      console.warn("registrationExpiring");
+    });
+
+
+    //为传入或传出会话/呼叫激发。data:
+    //     originator：'remote',新消息由远程对等方生成；'local',新消息由本地用户生成。
+    //      session:JsSIP.RTCSession 实例。
+    //      request:JsSIP.IncomingRequest收到的MESSAGE请求的实例；JsSIP.OutgoingRequest传出MESSAGE请求的实例
+    userAgent.on('newRTCSession', function (data) {
+      console.info('onNewRTCSession: ', data);
+      if (data.originator == 'remote') { //incoming call
+        console.info("incomingSession, answer the call");
+        incomingSession = data.session;
+        //回答传入会话。此方法仅适用于传入会话。
+        sipEventBind(data);
+
+      } else {
+        //打电话
+        console.info("outgoingSession");
+        outgoingSession = data.session;
+        //监听远程的音频流
+        outgoingSession.connection.addEventListener("addstream", function (ev) {
+          console.info('out onaddstream from remote - ', ev.stream);
+          //audio.srcObject  = ev.stream;
+          //showVedio();
+          youVideo.srcObject = ev.stream;
+        });
+
+        outgoingSession.on('connecting', function (data) {
+          console.info('onConnecting - ', data.request);
+          currentSession = outgoingSession;
+          outgoingSession = null;
+        });
+      }
+
+
+
+    });
+
+
+    //为传入或传出消息请求激发。data:
+    //     originator：'remote',新消息由远程对等方生成；'local',新消息由本地用户生成。
+    //      message:JsSIP.Message 实例。
+    //      request:JsSIP.IncomingRequest收到的MESSAGE请求的实例；JsSIP.OutgoingRequest传出MESSAGE请求的实例
+    userAgent.on('newMessage', function (data) {
+      if (data.originator == 'local') {
+        console.info('onNewMessage , OutgoingRequest - ', data.request);
+      } else {
+        console.info('onNewMessage , IncomingRequest - ', data.request);
+      }
+    });
+
+    console.info("call register");
+    //连接到信令服务器，并恢复以前的状态，如果以前停止。重新开始时，如果UA配置中的参数设置为register:true，则向SIP域注册。
+    userAgent.start();
+  }
+
+  function sipEventBind(remotedata, callbacks) {
+    //接受呼叫时激发
+    remotedata.session.on('accepted', function () {
+      console.info('onAccepted - ', remotedata);
+      if (remotedata.originator == 'remote' && currentSession == null) {
+        currentSession = incomingSession;
+        incomingSession = null;
+        console.info("setCurrentSession - ", currentSession);
+      }
+    });
+
+    //在将远程SDP传递到RTC引擎之前以及在发送本地SDP之前激发。此事件提供了修改传入和传出SDP的机制。
+    remotedata.session.on('sdp', function (data) {
+      console.info('onSDP, type - ', data.type, ' sdp - ', data.sdp);
+      // data.sdp = data.sdp.replace('UDP/TLS/RTP/SAVPF', 'UDP/RTP/AVPF');
+      //console.info('onSDP, changed sdp - ', data.sdp);
+    });
+
+    //接收或生成对邀请请求的1XX SIP类响应（>100）时激发。该事件在SDP处理之前触发（如果存在），以便在需要时对其进行微调，甚至通过删除数据对象中响应参数的主体来删除它
+    remotedata.session.on('progress', function () {
+      console.info('onProgress - ', remotedata.originator);
+      if (remotedata.originator == 'remote') {
+        console.info('onProgress, response - ', remotedata.response);
+        //answer设置的自动接听
+        //RTCSession 的 answer 方法做了自动接听。实际开发中，你需要弹出一个提示框，让用户选择是否接听
+        var flag = confirm("是否接听?");
+        if (!flag) {
+          userAgent.terminateSessions();
+          return;
+        }
+        //如果同一电脑两个浏览器测试则video改为false,这样被呼叫端可以看到视频，两台电脑测试让双方都看到改为true
+        remotedata.session.answer({
+          'mediaConstraints': { 'audio': true, 'video': true },
+          'mediaStream': localStream
+        });
+
+      }
+    });
+
+    //创建基础RTCPeerConnection后激发。应用程序有机会通过在peerconnection上添加RTCDataChannel或设置相应的事件侦听器来更改peerconnection。
+    remotedata.session.on('peerconnection', function () {
+      console.info('onPeerconnection - ', remotedata.peerconnection);
+
+      if (remotedata.originator == 'remote' && currentSession == null) {
+        //拿到远程的音频流
+        remotedata.session.connection.addEventListener("addstream", function (ev) {
+          console.info('in onaddstream from remote - ', ev.stream);
+          //audio.srcObject  = ev.stream;
+          //showVedio();
+          youVideo.srcObject = ev.stream;
+
+        });
+      }
+
+    });
+
+    //确认呼叫后激发
+    remotedata.session.on('confirmed', function () {
+      console.info('onConfirmed - ', remotedata);
+      if (remotedata.originator == 'remote' && currentSession == null) {
+        currentSession = incomingSession;
+        incomingSession = null;
+        console.info("setCurrentSession - ", currentSession);
+      }
+    });
+
+    // 挂断处理
+    remotedata.session.on("ended", function () {
+      var stream1 = audio.srcObject;
+      if (stream1 != undefined) {
+        var tracks = stream1.getTracks();
+        if (tracks != undefined) {
+          tracks.forEach(track => {
+            track.stop();
+          });
+        }
+      }
+      if (myHangup) {
+        myHangup = false;
+        alert("通话结束");
+      } else {
+        confirm("对方已挂断!");
+      }
+      console.log('call ended with cause: ' + remotedata.cause);
+    });
+
+  }
+
+  // Register callbacks to desired call events
+  var eventHandlers = {
+    'progress': function (e) {
+      console.log('call is in progress');
+    },
+    'failed': function (e) {
+      console.log('call failed: ', e);
+    },
+    'ended': function (e) {
+      console.log('call ended : ', e);
+    },
+    'confirmed': function (e) {
+      console.log('call confirmed');
+    }
+  };
+
+  //语音拨号
+  function testCall() {
+    var sip_phone_number_ = document.getElementById("sip_phone_number").value.toString();
+
+    var options = {
+      'eventHandlers': eventHandlers,
+      'mediaConstraints': { 'audio': true, 'video': false }
+      // 'sessionTimersExpires': 120,
+      // 'mediaStream': localStream
+      // ,'pcConfig': {
+      //      'iceServers': [
+      //         {
+      //            'urls': ['stun:stun.l.google.com:19302','stun:stun.counterpath.net:3478','stun:numb.viagenie.ca:3478']
+      //          }
+      //       ]
+      //    },
+    };
+
+    //outgoingSession = userAgent.call('sip:3000@192.168.40.96:5060', options);
+    /*
+           * 拨打多媒体电话。不需要自己调用 getUserMedia 来捕获音视频了， JsSIP 会根据你传给JsSIP.UA.call方法的参数来自己调用
+               参数
+               Target 通话的目的地。String表示目标用户名或完整的SIP URI或JsSIP.URI实例。
+               Options 可选Object附加参数（见下文）。
+                   options对象中的字段；
+                   mediaConstraints Object有两个有效的字段（audio和video）指示会话是否打算使用音频和/或视频以及要使用的约束。默认值是audio并且video设置为true。
+                   mediaStream MediaStream 传送到另一端。
+                   eventHandlers Object事件处理程序的可选项将被注册到每个呼叫事件。为每个要通知的事件定义事件处理程序。
+               */
+    outgoingSession = userAgent.call(sip_phone_number_, options);
+  }
+  //视频拨号
+  function testCallByVedio() {
+    var sip_phone_number_ = document.getElementById("sip_phone_number").value.toString();
+
+    var options = {
+      'eventHandlers': eventHandlers,
+      'mediaConstraints': { 'audio': true, 'video': true }
+      // ,'sessionTimersExpires': 120
+      // ,'mediaStream': localStream
+      // ,'pcConfig': {
+      //      'iceServers': [
+      //         {
+      //            'urls': ['stun:stun.l.google.com:19302','stun:stun.counterpath.net:3478','stun:numb.viagenie.ca:3478']
+      //          }
+      //       ]
+      //    },
+    };
+    outgoingSession = userAgent.call(sip_phone_number_, options);
+  }
+  //挂断电话
+  function testHangup() {
+    myHangup = true;
+    outgoingSession = userAgent.terminateSessions();
+    var videoSrcObject = meVideo.srcObject;
+    if (videoSrcObject) {
+      var tracks = videoSrcObject.getTracks();
+      for (var i = 0; i < tracks.length; i++) {
+        tracks[i].stop();
+      }
+    }
+  }
+  //取消注册
+  function unReg() {
+    console.log('unregister----------->')
+    userAgent.unregister(true)
+  }
+  //自定义弹框,未完善，暂时不用
+  /** function showPopup(){
+     var overlay = document.getElementById("overlay");
+     overlay.style.display = "block";
+   return true;
+   }
+   function hidePopup(){
+     var overlay = document.getElementById("overlay");
+     overlay.style.display = "none";
+   return false;
+   }
+   
+   function promptMessage(title,msg){
+     document.getElementById("p_title").innerHTML=title;
+     document.getElementById("p_content").innerHTML=msg;
+   showPopup();
+   } */
+</script>
+
+</html>
